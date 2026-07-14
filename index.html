@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>repo.sh — GitHub Repo Manager</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg-0:#0b0d10;
+    --bg-1:#14171b;
+    --bg-2:#1b1f24;
+    --border:#262b31;
+    --text-0:#eef0f2;
+    --text-1:#8a9199;
+    --add:#6cd97e;
+    --danger:#ff6b5e;
+    --warn:#e8b339;
+    --mono:'JetBrains Mono',monospace;
+    --sans:'Inter',sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg-0);color:var(--text-0);font-family:var(--sans);height:100vh;overflow:hidden;}
+  ::selection{background:var(--add);color:#08110a;}
+  button{font-family:var(--mono);cursor:pointer;}
+  input,textarea{font-family:var(--sans);}
+
+  /* ---------- LOGIN ---------- */
+  #login-screen{
+    height:100vh;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:24px;
+    background:
+      linear-gradient(var(--border) 1px, transparent 1px) 0 0/100% 42px,
+      var(--bg-0);
+  }
+  .brand{font-family:var(--mono);font-size:15px;color:var(--add);letter-spacing:.06em;display:flex;align-items:center;gap:8px;}
+  .brand .dot{width:8px;height:8px;border-radius:50%;background:var(--add);box-shadow:0 0 8px var(--add);}
+  .login-card{
+    width:380px;background:var(--bg-1);border:1px solid var(--border);border-radius:10px;padding:28px;
+  }
+  .login-card h1{font-family:var(--mono);font-size:18px;margin:0 0 6px;font-weight:600;}
+  .login-card p{color:var(--text-1);font-size:13px;line-height:1.5;margin:0 0 18px;}
+  .login-card a{color:var(--add);}
+  label{display:block;font-size:12px;color:var(--text-1);margin-bottom:6px;font-family:var(--mono);}
+  input[type=password],input[type=text]{
+    width:100%;background:var(--bg-2);border:1px solid var(--border);color:var(--text-0);
+    padding:10px 12px;border-radius:6px;font-size:13px;margin-bottom:14px;outline:none;
+  }
+  input[type=password]:focus,input[type=text]:focus,textarea:focus{border-color:var(--add);}
+  .checkbox-row{display:flex;align-items:center;gap:8px;margin-bottom:16px;}
+  .checkbox-row input{margin:0;}
+  .checkbox-row label{margin:0;font-family:var(--sans);color:var(--text-0);font-size:13px;}
+  .btn{
+    border:none;border-radius:6px;padding:10px 16px;font-size:13px;font-weight:600;
+    display:inline-flex;align-items:center;gap:6px;
+  }
+  .btn-primary{background:var(--add);color:#08110a;width:100%;justify-content:center;}
+  .btn-primary:hover{filter:brightness(1.08);}
+  .btn-ghost{background:transparent;color:var(--text-1);border:1px solid var(--border);}
+  .btn-ghost:hover{color:var(--text-0);border-color:var(--text-1);}
+  .btn-danger{background:transparent;color:var(--danger);border:1px solid rgba(255,107,94,.4);}
+  .btn-danger:hover{background:rgba(255,107,94,.1);}
+  .err-msg{color:var(--danger);font-size:12px;margin:-8px 0 14px;font-family:var(--mono);display:none;}
+
+  /* ---------- APP SHELL ---------- */
+  #app{display:none;height:100vh;flex-direction:column;}
+  #topbar{
+    height:52px;flex:none;display:flex;align-items:center;justify-content:space-between;
+    padding:0 16px;border-bottom:1px solid var(--border);background:var(--bg-1);
+  }
+  #topbar .user{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--text-1);font-family:var(--mono);}
+  #topbar .user b{color:var(--text-0);}
+  #main-row{flex:1;display:flex;min-height:0;}
+
+  /* ---------- SIDEBAR ---------- */
+  #sidebar{width:280px;flex:none;border-right:1px solid var(--border);display:flex;flex-direction:column;background:var(--bg-1);}
+  #sidebar-head{padding:14px;border-bottom:1px solid var(--border);}
+  #search-input{width:100%;background:var(--bg-2);border:1px solid var(--border);color:var(--text-0);padding:8px 10px;border-radius:6px;font-size:13px;margin-bottom:10px;}
+  #new-repo-btn{width:100%;}
+  #repo-list{flex:1;overflow-y:auto;padding:6px;}
+  .repo-item{
+    padding:10px 10px;border-radius:6px;cursor:pointer;margin-bottom:2px;
+  }
+  .repo-item:hover{background:var(--bg-2);}
+  .repo-item.active{background:var(--bg-2);box-shadow:inset 2px 0 0 var(--add);}
+  .repo-item .name{font-family:var(--mono);font-size:13px;color:var(--text-0);display:flex;align-items:center;gap:6px;}
+  .repo-item .name .lock{color:var(--warn);font-size:10px;}
+  .repo-item .meta{font-size:11px;color:var(--text-1);margin-top:3px;}
+
+  /* ---------- MAIN PANEL ---------- */
+  #panel{flex:1;display:flex;flex-direction:column;min-width:0;}
+  #empty-state{flex:1;display:flex;align-items:center;justify-content:center;color:var(--text-1);font-family:var(--mono);font-size:13px;}
+  #repo-view{flex:1;display:none;flex-direction:column;min-height:0;}
+  #repo-header{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+  #repo-header h2{margin:0;font-family:var(--mono);font-size:16px;font-weight:600;}
+  #repo-header .sub{color:var(--text-1);font-size:12px;margin-top:3px;}
+  #repo-header .actions{display:flex;gap:8px;}
+
+  #breadcrumbs{padding:10px 20px;font-family:var(--mono);font-size:12px;color:var(--text-1);border-bottom:1px solid var(--border);}
+  #breadcrumbs span{cursor:pointer;}
+  #breadcrumbs span:hover{color:var(--add);}
+
+  #file-body{flex:1;display:flex;min-height:0;}
+  #file-list{width:260px;flex:none;overflow-y:auto;border-right:1px solid var(--border);padding:8px;}
+  .file-row{padding:7px 8px;border-radius:5px;font-family:var(--mono);font-size:12.5px;cursor:pointer;display:flex;align-items:center;gap:6px;color:var(--text-0);}
+  .file-row:hover{background:var(--bg-2);}
+  .file-row.active{background:var(--bg-2);}
+  .file-row .icon{color:var(--text-1);width:14px;}
+  #new-file-row{margin-top:6px;display:flex;gap:4px;padding:6px 4px;}
+  #new-file-row input{flex:1;background:var(--bg-2);border:1px solid var(--border);color:var(--text-0);padding:6px 8px;border-radius:5px;font-size:12px;font-family:var(--mono);}
+
+  #editor-pane{flex:1;display:flex;flex-direction:column;min-width:0;}
+  #editor-empty{flex:1;display:flex;align-items:center;justify-content:center;color:var(--text-1);font-family:var(--mono);font-size:12.5px;}
+  #editor-area{flex:1;display:none;flex-direction:column;min-height:0;}
+  #editor-topline{padding:10px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;}
+  #editor-path{font-family:var(--mono);font-size:12.5px;color:var(--text-0);}
+  #editor-textarea{
+    flex:1;background:var(--bg-0);color:var(--text-0);border:none;outline:none;resize:none;
+    padding:16px 20px;font-family:var(--mono);font-size:13px;line-height:1.6;
+  }
+  #commit-row{padding:12px 16px;border-top:1px solid var(--border);display:flex;gap:8px;}
+  #commit-msg{flex:1;background:var(--bg-2);border:1px solid var(--border);color:var(--text-0);padding:9px 10px;border-radius:6px;font-size:13px;}
+
+  /* ---------- ACTIVITY LOG (signature element) ---------- */
+  #log-drawer{
+    flex:none;border-top:1px solid var(--border);background:var(--bg-1);
+    transition:height .18s ease;overflow:hidden;
+  }
+  #log-toggle{
+    height:28px;display:flex;align-items:center;gap:8px;padding:0 16px;font-family:var(--mono);
+    font-size:11px;color:var(--text-1);cursor:pointer;border-bottom:1px solid transparent;
+  }
+  #log-toggle:hover{color:var(--text-0);}
+  #log-body{height:130px;overflow-y:auto;padding:6px 16px;font-family:var(--mono);font-size:11.5px;}
+  .log-line{display:flex;gap:10px;padding:3px 0;color:var(--text-1);}
+  .log-line .hash{color:var(--add);}
+  .log-line.danger .hash{color:var(--danger);}
+  .log-line .msg{color:var(--text-0);}
+  .log-line .time{margin-left:auto;color:var(--text-1);opacity:.6;}
+
+  /* ---------- MODAL ---------- */
+  .modal-overlay{
+    position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;z-index:50;
+  }
+  .modal{width:420px;background:var(--bg-1);border:1px solid var(--border);border-radius:10px;padding:22px;}
+  .modal h3{margin:0 0 16px;font-family:var(--mono);font-size:15px;}
+  .modal .row{margin-bottom:14px;}
+  .modal .actions{display:flex;justify-content:flex-end;gap:8px;margin-top:6px;}
+  .hint{font-size:11.5px;color:var(--text-1);margin:-8px 0 14px;}
+
+  ::-webkit-scrollbar{width:8px;height:8px;}
+  ::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px;}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login-screen">
+  <div class="brand"><span class="dot"></span>repo.sh</div>
+  <div class="login-card">
+    <h1>Hubungkan akun GitHub</h1>
+    <p>Masukkan <b>Personal Access Token</b> milikmu (scope <code>repo</code>) untuk membuat, mengedit, dan menghapus repository. Buat token di
+      <a href="https://github.com/settings/tokens" target="_blank">github.com/settings/tokens</a>.</p>
+    <label for="token-input">Personal Access Token</label>
+    <input type="password" id="token-input" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx">
+    <div class="err-msg" id="login-err">Token tidak valid atau tidak punya akses.</div>
+    <div class="checkbox-row">
+      <input type="checkbox" id="remember-check" checked>
+      <label for="remember-check">Ingat login di browser ini</label>
+    </div>
+    <button class="btn btn-primary" id="login-btn">Masuk →</button>
+    <p style="margin-top:14px;font-size:11.5px;">Token hanya tersimpan di browser kamu sendiri (localStorage) dan dikirim langsung ke GitHub API. Tidak pernah lewat server manapun. Jangan pakai di perangkat publik/bersama.</p>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app">
+  <div id="topbar">
+    <div class="brand"><span class="dot"></span>repo.sh</div>
+    <div class="user"><span id="user-line">—</span><button class="btn btn-ghost" id="logout-btn" style="margin-left:14px;">Keluar</button></div>
+  </div>
+
+  <div id="main-row">
+    <div id="sidebar">
+      <div id="sidebar-head">
+        <input type="text" id="search-input" placeholder="Cari repo...">
+        <button class="btn btn-primary" id="new-repo-btn" style="width:100%;justify-content:center;">+ Repo baru</button>
+      </div>
+      <div id="repo-list"></div>
+    </div>
+
+    <div id="panel">
+      <div id="empty-state">Pilih repo di kiri, atau buat repo baru</div>
+
+      <div id="repo-view">
+        <div id="repo-header">
+          <div>
+            <h2 id="repo-title">—</h2>
+            <div class="sub" id="repo-sub">—</div>
+          </div>
+          <div class="actions">
+            <button class="btn btn-ghost" id="open-github-btn">Buka di GitHub ↗</button>
+            <button class="btn btn-ghost" id="rename-repo-btn">Rename</button>
+            <button class="btn btn-danger" id="delete-repo-btn">Hapus repo</button>
+          </div>
+        </div>
+        <div id="breadcrumbs"></div>
+        <div id="file-body">
+          <div id="file-list"></div>
+          <div id="editor-pane">
+            <div id="editor-empty">Pilih file untuk diedit, atau buat file baru di kiri</div>
+            <div id="editor-area">
+              <div id="editor-topline">
+                <span id="editor-path">—</span>
+                <button class="btn btn-danger" id="delete-file-btn" style="padding:5px 10px;font-size:11.5px;">Hapus file</button>
+              </div>
+              <textarea id="editor-textarea" spellcheck="false"></textarea>
+              <div id="commit-row">
+                <input type="text" id="commit-msg" placeholder="Pesan commit (mis. 'update readme')">
+                <button class="btn btn-primary" id="commit-btn">Commit</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="log-drawer">
+    <div id="log-toggle">▾ Activity log</div>
+    <div id="log-body"></div>
+  </div>
+</div>
+
+<!-- NEW REPO MODAL -->
+<div class="modal-overlay" id="new-repo-modal">
+  <div class="modal">
+    <h3>Repo baru</h3>
+    <div class="row">
+      <label>Nama repo</label>
+      <input type="text" id="nr-name" placeholder="nama-repo-saya">
+    </div>
+    <div class="row">
+      <label>Deskripsi (opsional)</label>
+      <input type="text" id="nr-desc" placeholder="Deskripsi singkat">
+    </div>
+    <div class="checkbox-row">
+      <input type="checkbox" id="nr-private">
+      <label for="nr-private">Private repo</label>
+    </div>
+    <div class="checkbox-row">
+      <input type="checkbox" id="nr-init" checked>
+      <label for="nr-init">Buat initial commit (README.md)</label>
+    </div>
+    <div class="hint">Repo langsung dibuat dengan 1 commit awal jika opsi ini dicentang.</div>
+    <div class="actions">
+      <button class="btn btn-ghost" id="nr-cancel">Batal</button>
+      <button class="btn btn-primary" id="nr-create">Buat repo</button>
+    </div>
+  </div>
+</div>
+
+<!-- RENAME REPO MODAL -->
+<div class="modal-overlay" id="rename-repo-modal">
+  <div class="modal">
+    <h3>Rename repo</h3>
+    <p style="font-size:13px;color:var(--text-1);margin-top:-8px;">Nama saat ini: <b id="rn-current-name" style="color:var(--text-0);"></b></p>
+    <div class="row">
+      <label>Nama baru</label>
+      <input type="text" id="rn-new-name" placeholder="nama-repo-baru">
+    </div>
+    <div class="hint">GitHub akan otomatis redirect dari URL lama ke URL baru untuk sementara waktu.</div>
+    <div class="actions">
+      <button class="btn btn-ghost" id="rn-cancel">Batal</button>
+      <button class="btn btn-primary" id="rn-confirm-btn">Rename</button>
+    </div>
+  </div>
+</div>
+
+<!-- DELETE REPO CONFIRM -->
+<div class="modal-overlay" id="del-repo-modal">
+  <div class="modal">
+    <h3 style="color:var(--danger);">Hapus repo?</h3>
+    <p style="font-size:13px;color:var(--text-1);">Ketik nama repo <b id="del-repo-name-echo" style="color:var(--text-0);"></b> untuk konfirmasi. Aksi ini tidak bisa dibatalkan.</p>
+    <input type="text" id="del-confirm-input" placeholder="ketik nama repo di sini">
+    <div class="actions">
+      <button class="btn btn-ghost" id="del-cancel">Batal</button>
+      <button class="btn btn-danger" id="del-confirm-btn">Hapus permanen</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = 'https://api.github.com';
+const STORAGE_KEY = 'repo_sh_gh_pat';
+let TOKEN = null, ME = null;
+let currentRepo = null; // {owner, name, default_branch, html_url, description}
+let currentPath = '';
+let currentFileSha = null;
+
+const $ = id => document.getElementById(id);
+
+function log(msg, danger=false){
+  const box = $('log-body');
+  const line = document.createElement('div');
+  line.className = 'log-line' + (danger?' danger':'');
+  const hash = Math.random().toString(16).slice(2,9);
+  const time = new Date().toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  line.innerHTML = `<span class="hash">${hash}</span><span class="msg">${msg}</span><span class="time">${time}</span>`;
+  box.prepend(line);
+}
+
+async function gh(path, opts={}){
+  const res = await fetch(API + path, {
+    ...opts,
+    headers:{
+      'Authorization': 'token ' + TOKEN,
+      'Accept':'application/vnd.github+json',
+      ...(opts.headers||{})
+    }
+  });
+  if(!res.ok){
+    let body = {};
+    try{ body = await res.json(); }catch(e){}
+    const msg = body.message || (res.status + ' ' + res.statusText);
+    throw new Error(msg);
+  }
+  if(res.status === 204) return null;
+  return res.json();
+}
+
+// ---------- base64 helpers (unicode safe) ----------
+function b64encode(str){
+  return btoa(unescape(encodeURIComponent(str)));
+}
+function b64decode(str){
+  return decodeURIComponent(escape(atob(str.replace(/\n/g,''))));
+}
+
+// ---------- LOGIN ----------
+async function tryLogin(token){
+  TOKEN = token;
+  ME = await gh('/user');
+  $('user-line').innerHTML = `<b>${ME.login}</b>`;
+  $('login-screen').style.display = 'none';
+  $('app').style.display = 'flex';
+  log(`Masuk sebagai ${ME.login}`);
+  await loadRepos();
+}
+
+$('login-btn').onclick = async () => {
+  const token = $('token-input').value.trim();
+  if(!token) return;
+  $('login-err').style.display = 'none';
+  $('login-btn').textContent = 'Menghubungkan...';
+  try{
+    await tryLogin(token);
+    if($('remember-check').checked){
+      try{ localStorage.setItem(STORAGE_KEY, token); }
+      catch(e){ console.error('localStorage save failed', e); }
+    }
+  }catch(e){
+    $('login-err').textContent = 'Gagal login: ' + e.message;
+    $('login-err').style.display = 'block';
+  }finally{
+    $('login-btn').textContent = 'Masuk →';
+  }
+};
+
+$('logout-btn').onclick = () => {
+  TOKEN = null; ME = null; currentRepo = null;
+  try{ localStorage.removeItem(STORAGE_KEY); }catch(e){}
+  $('app').style.display = 'none';
+  $('login-screen').style.display = 'flex';
+  $('token-input').value = '';
+};
+
+async function autoLogin(){
+  try{
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if(saved){
+      await tryLogin(saved);
+    }
+  }catch(e){
+    // no saved token, stay on login screen
+  }
+}
+autoLogin();
+
+// ---------- REPO LIST ----------
+let allRepos = [];
+async function loadRepos(){
+  $('repo-list').innerHTML = '<div style="padding:12px;color:var(--text-1);font-family:var(--mono);font-size:12px;">Memuat repo...</div>';
+  const repos = await gh('/user/repos?per_page=100&sort=updated');
+  renderRepoList(repos);
+}
+
+function renderRepoList(repos){
+  if(repos) allRepos = repos;
+  const q = $('search-input').value.toLowerCase();
+  const filtered = allRepos.filter(r => r.name.toLowerCase().includes(q));
+  $('repo-list').innerHTML = '';
+  if(filtered.length === 0){
+    $('repo-list').innerHTML = '<div style="padding:12px;color:var(--text-1);font-family:var(--mono);font-size:12px;">Tidak ada repo ditemukan.</div>';
+    return;
+  }
+  filtered.forEach(r => {
+    const el = document.createElement('div');
+    el.className = 'repo-item' + (currentRepo && currentRepo.name===r.name && currentRepo.owner===r.owner.login ? ' active':'');
+    el.innerHTML = `<div class="name">${r.private?'<span class="lock">🔒</span>':''}${r.name}</div>
+      <div class="meta">${r.language || 'no language'} · updated ${new Date(r.updated_at).toLocaleDateString('id-ID')}</div>`;
+    el.onclick = () => selectRepo(r);
+    $('repo-list').appendChild(el);
+  });
+}
+$('search-input').oninput = () => renderRepoList();
+
+// ---------- SELECT REPO ----------
+async function selectRepo(r){
+  const owner = r.owner ? r.owner.login : r.owner;
+  currentRepo = {owner, name: r.name, default_branch: r.default_branch, private:r.private, html_url:r.html_url, description:r.description};
+  currentPath = '';
+  renderRepoList();
+  $('empty-state').style.display = 'none';
+  $('repo-view').style.display = 'flex';
+  $('repo-title').textContent = r.name;
+  $('repo-sub').textContent = r.description || 'Tidak ada deskripsi';
+  $('open-github-btn').onclick = () => window.open(currentRepo.html_url, '_blank');
+  closeEditor();
+  await loadDir('');
+}
+
+// ---------- FILE BROWSER ----------
+async function loadDir(path){
+  currentPath = path;
+  renderBreadcrumbs();
+  $('file-list').innerHTML = '<div style="padding:8px;color:var(--text-1);font-family:var(--mono);font-size:12px;">Memuat...</div>';
+  try{
+    const contents = await gh(`/repos/${currentRepo.owner}/${currentRepo.name}/contents/${encodeURIComponent(path).replace(/%2F/g,'/')}`);
+    renderFileList(Array.isArray(contents)?contents:[contents]);
+  }catch(e){
+    $('file-list').innerHTML = `<div style="padding:8px;color:var(--warn);font-family:var(--mono);font-size:12px;">Repo kosong / tidak ada file.</div>`;
+    renderNewFileRow();
+  }
+}
+
+function renderBreadcrumbs(){
+  const parts = currentPath ? currentPath.split('/') : [];
+  let html = `<span data-path="">${currentRepo.name}</span>`;
+  let acc = '';
+  parts.forEach(p => {
+    acc += (acc?'/':'') + p;
+    html += ` / <span data-path="${acc}">${p}</span>`;
+  });
+  $('breadcrumbs').innerHTML = html;
+  $('breadcrumbs').querySelectorAll('span').forEach(s => {
+    s.onclick = () => loadDir(s.dataset.path);
+  });
+}
+
+function renderFileList(items){
+  items.sort((a,b) => (a.type===b.type) ? a.name.localeCompare(b.name) : (a.type==='dir'?-1:1));
+  $('file-list').innerHTML = '';
+  items.forEach(it => {
+    const row = document.createElement('div');
+    row.className = 'file-row';
+    row.innerHTML = `<span class="icon">${it.type==='dir'?'📁':'📄'}</span>${it.name}`;
+    row.onclick = () => {
+      if(it.type === 'dir'){
+        loadDir(currentPath ? currentPath + '/' + it.name : it.name);
+      }else{
+        openFile(it.path, it.sha);
+        document.querySelectorAll('.file-row').forEach(r=>r.classList.remove('active'));
+        row.classList.add('active');
+      }
+    };
+    $('file-list').appendChild(row);
+  });
+  renderNewFileRow();
+}
+
+function renderNewFileRow(){
+  const wrap = document.createElement('div');
+  wrap.id = 'new-file-row';
+  wrap.innerHTML = `<input type="text" id="new-file-input" placeholder="nama-file-baru.md"><button class="btn btn-ghost" id="new-file-go" style="padding:6px 10px;font-size:11.5px;">+ Buat</button>`;
+  $('file-list').appendChild(wrap);
+  $('new-file-go').onclick = () => {
+    const name = $('new-file-input').value.trim();
+    if(!name) return;
+    const path = currentPath ? currentPath + '/' + name : name;
+    openFile(path, null, true);
+  };
+}
+
+// ---------- EDITOR ----------
+async function openFile(path, sha, isNew=false){
+  currentFileSha = sha;
+  $('editor-empty').style.display = 'none';
+  $('editor-area').style.display = 'flex';
+  $('editor-path').textContent = path;
+  $('delete-file-btn').style.display = isNew ? 'none' : 'inline-flex';
+  $('commit-msg').value = isNew ? `Create ${path}` : `Update ${path}`;
+  if(isNew){
+    $('editor-textarea').value = '';
+    $('editor-textarea').dataset.path = path;
+    $('editor-textarea').dataset.isnew = '1';
+    return;
+  }
+  $('editor-textarea').value = 'Memuat file...';
+  try{
+    const file = await gh(`/repos/${currentRepo.owner}/${currentRepo.name}/contents/${encodeURIComponent(path).replace(/%2F/g,'/')}`);
+    currentFileSha = file.sha;
+    $('editor-textarea').value = b64decode(file.content);
+    $('editor-textarea').dataset.path = path;
+    $('editor-textarea').dataset.isnew = '0';
+  }catch(e){
+    $('editor-textarea').value = '';
+    log(`Gagal buka file: ${e.message}`, true);
+  }
+}
+
+function closeEditor(){
+  $('editor-empty').style.display = 'flex';
+  $('editor-area').style.display = 'none';
+  currentFileSha = null;
+}
+
+$('commit-btn').onclick = async () => {
+  const path = $('editor-textarea').dataset.path;
+  const isNew = $('editor-textarea').dataset.isnew === '1';
+  const content = $('editor-textarea').value;
+  const message = $('commit-msg').value.trim() || (isNew ? `Create ${path}` : `Update ${path}`);
+  $('commit-btn').textContent = 'Committing...';
+  try{
+    const body = { message, content: b64encode(content) };
+    if(!isNew && currentFileSha) body.sha = currentFileSha;
+    const result = await gh(`/repos/${currentRepo.owner}/${currentRepo.name}/contents/${encodeURIComponent(path).replace(/%2F/g,'/')}`, {
+      method:'PUT', body: JSON.stringify(body)
+    });
+    currentFileSha = result.content.sha;
+    $('editor-textarea').dataset.isnew = '0';
+    log(`Commit "${message}" ke ${currentRepo.name}/${path}`);
+    await loadDir(currentPath);
+  }catch(e){
+    log(`Commit gagal: ${e.message}`, true);
+    alert('Commit gagal: ' + e.message);
+  }finally{
+    $('commit-btn').textContent = 'Commit';
+  }
+};
+
+$('delete-file-btn').onclick = async () => {
+  const path = $('editor-textarea').dataset.path;
+  if(!confirm(`Hapus file "${path}"? Aksi ini akan membuat commit penghapusan.`)) return;
+  try{
+    await gh(`/repos/${currentRepo.owner}/${currentRepo.name}/contents/${encodeURIComponent(path).replace(/%2F/g,'/')}`, {
+      method:'DELETE',
+      body: JSON.stringify({ message:`Delete ${path}`, sha: currentFileSha })
+    });
+    log(`Hapus file ${currentRepo.name}/${path}`, true);
+    closeEditor();
+    await loadDir(currentPath);
+  }catch(e){
+    alert('Gagal hapus file: ' + e.message);
+  }
+};
+
+// ---------- NEW REPO MODAL ----------
+$('new-repo-btn').onclick = () => { $('new-repo-modal').style.display='flex'; $('nr-name').focus(); };
+$('nr-cancel').onclick = () => $('new-repo-modal').style.display='none';
+$('nr-create').onclick = async () => {
+  const name = $('nr-name').value.trim();
+  if(!name) return;
+  $('nr-create').textContent = 'Membuat...';
+  try{
+    const repo = await gh('/user/repos', {
+      method:'POST',
+      body: JSON.stringify({
+        name,
+        description: $('nr-desc').value.trim(),
+        private: $('nr-private').checked,
+        auto_init: $('nr-init').checked
+      })
+    });
+    log(`Buat repo baru "${repo.name}"${$('nr-init').checked ? ' (1 initial commit)':''}`);
+    $('new-repo-modal').style.display = 'none';
+    $('nr-name').value=''; $('nr-desc').value=''; $('nr-private').checked=false; $('nr-init').checked=true;
+    await loadRepos();
+    selectRepo(repo);
+  }catch(e){
+    alert('Gagal buat repo: ' + e.message);
+  }finally{
+    $('nr-create').textContent = 'Buat repo';
+  }
+};
+
+// ---------- RENAME REPO MODAL ----------
+$('rename-repo-btn').onclick = () => {
+  $('rn-current-name').textContent = currentRepo.name;
+  $('rn-new-name').value = currentRepo.name;
+  $('rename-repo-modal').style.display = 'flex';
+  $('rn-new-name').focus();
+};
+$('rn-cancel').onclick = () => $('rename-repo-modal').style.display='none';
+$('rn-confirm-btn').onclick = async () => {
+  const newName = $('rn-new-name').value.trim();
+  if(!newName) return;
+  if(newName === currentRepo.name){ $('rename-repo-modal').style.display='none'; return; }
+  $('rn-confirm-btn').textContent = 'Renaming...';
+  try{
+    const updated = await gh(`/repos/${currentRepo.owner}/${currentRepo.name}`, {
+      method:'PATCH',
+      body: JSON.stringify({ name: newName })
+    });
+    log(`Rename repo "${currentRepo.name}" → "${updated.name}"`);
+    currentRepo.name = updated.name;
+    currentRepo.html_url = updated.html_url;
+    $('repo-title').textContent = updated.name;
+    $('rename-repo-modal').style.display = 'none';
+    await loadRepos();
+    await loadDir('');
+  }catch(e){
+    alert('Gagal rename repo: ' + e.message);
+  }finally{
+    $('rn-confirm-btn').textContent = 'Rename';
+  }
+};
+
+// ---------- DELETE REPO MODAL ----------
+$('delete-repo-btn').onclick = () => {
+  $('del-repo-name-echo').textContent = currentRepo.name;
+  $('del-confirm-input').value = '';
+  $('del-repo-modal').style.display = 'flex';
+};
+$('del-cancel').onclick = () => $('del-repo-modal').style.display='none';
+$('del-confirm-btn').onclick = async () => {
+  if($('del-confirm-input').value.trim() !== currentRepo.name){
+    alert('Nama repo tidak cocok.');
+    return;
+  }
+  try{
+    await gh(`/repos/${currentRepo.owner}/${currentRepo.name}`, { method:'DELETE' });
+    log(`Hapus repo "${currentRepo.name}" secara permanen`, true);
+    $('del-repo-modal').style.display = 'none';
+    $('repo-view').style.display = 'none';
+    $('empty-state').style.display = 'flex';
+    currentRepo = null;
+    await loadRepos();
+  }catch(e){
+    alert('Gagal hapus repo: ' + e.message);
+  }
+};
+
+// ---------- LOG DRAWER TOGGLE ----------
+let logOpen = true;
+$('log-toggle').onclick = () => {
+  logOpen = !logOpen;
+  $('log-body').style.display = logOpen ? 'block' : 'none';
+  $('log-toggle').textContent = (logOpen?'▾':'▸') + ' Activity log';
+};
+</script>
+</body>
+</html>

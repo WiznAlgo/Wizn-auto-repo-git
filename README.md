@@ -47,10 +47,28 @@ sendiri — bukan akunmu.
   commit (README.md).
 - Rename repo.
 - Hapus repo (dengan konfirmasi ketik nama repo).
-- Browse folder & file di repo, edit isi file lalu commit — setiap
-  simpan menghasilkan tepat 1 commit ke GitHub.
+- **Folder tree expand-in-place** — klik folder untuk buka/tutup isinya
+  langsung di tempat (indentasi bertambah per level), tanpa pindah halaman.
+  Klik folder juga menjadikannya "target" untuk file baru/upload berikutnya.
+- Edit isi file lalu commit — setiap simpan menghasilkan tepat 1 commit.
 - Buat file baru, hapus file individual.
+- **Multi-select file** (checkbox) lalu hapus semuanya sekaligus dalam
+  **1 commit** (pakai Git Data API: blobs → tree → commit → update ref).
+- **Upload file biasa** (bisa multi-file sekaligus, 1 commit untuk semuanya)
+  dan **upload .zip** — isi zip otomatis diekstrak dan diupload dengan
+  struktur folder di dalamnya tetap terjaga, semua dalam **1 commit**.
+- Tampilan responsif: di layar HP, tampilan jadi satu panel per layar
+  (daftar repo → file tree → editor) dengan tombol "←" untuk kembali,
+  supaya tidak sempit dan berantakan.
 - Activity log lokal untuk melihat histori aksi di sesi berjalan.
+
+### Catatan teknis: commit multi-file
+
+Fitur hapus banyak file / upload banyak file dalam satu commit memakai
+Git Data API (`git/blobs`, `git/trees`, `git/commits`, `git/refs`), bukan
+Contents API biasa (yang selalu menghasilkan 1 commit per file). Untuk repo
+kosong tanpa commit sama sekali, tools ini otomatis fallback membuat commit
+pertama tanpa parent.
 
 ## Catatan keamanan untuk pengguna
 
